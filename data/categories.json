@@ -1,0 +1,26 @@
+[
+  {
+    "id": "cat-featured-1111-2222-3333-abcdefabcdef",
+    "name": "Destacados",
+    "slug": "featured",
+    "color": "#6366F1",
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "updatedAt": "2024-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "cat-writing-1111-2222-3333-bbcdefabcdef",
+    "name": "Escritura",
+    "slug": "writing",
+    "color": "#F59E0B",
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "updatedAt": "2024-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "cat-video-1111-2222-3333-cbcdefabcdef",
+    "name": "Video",
+    "slug": "video",
+    "color": "#10B981",
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "updatedAt": "2024-01-01T00:00:00.000Z"
+  }
+]
