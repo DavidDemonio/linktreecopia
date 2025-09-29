@@ -1,5 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowDownIcon, ArrowUpIcon, PencilSquareIcon, TrashIcon, PlusIcon } from '@heroicons/react/24/outline';
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  ArrowTopRightOnSquareIcon,
+  PencilSquareIcon,
+  TrashIcon,
+  PlusIcon
+} from '@heroicons/react/24/outline';
 import { useAdmin } from '../context/AdminContext.jsx';
 import { useToasts } from '../context/ToastContext.jsx';
 import LinkFormModal from '../components/LinkFormModal.jsx';
@@ -220,6 +227,14 @@ export default function LinksPage() {
                           title="Bajar"
                         >
                           <ArrowDownIcon className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => window.open(`/api/go/${link.slug}`, '_blank', 'noopener,noreferrer')}
+                          className="rounded-full border border-white/10 p-2 hover:border-indigo-400"
+                          title="Abrir enlace"
+                        >
+                          <ArrowTopRightOnSquareIcon className="h-4 w-4" />
                         </button>
                         <button
                           type="button"
