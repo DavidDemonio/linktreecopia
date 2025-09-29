@@ -1,0 +1,41 @@
+[
+  {
+    "id": "1a2b3c4d-1111-2222-3333-abcdefabcdef",
+    "title": "Portfolio",
+    "url": "https://example.com",
+    "slug": "portfolio",
+    "description": "Conoce mis últimos proyectos y colaboraciones.",
+    "icon": "💼",
+    "categories": ["featured"],
+    "active": true,
+    "order": 0,
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "updatedAt": "2024-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "2b3c4d5e-1111-2222-3333-bbcdefabcdef",
+    "title": "Blog",
+    "url": "https://blog.example.com",
+    "slug": "blog",
+    "description": "Ideas sobre tecnología, diseño y productividad.",
+    "icon": "📝",
+    "categories": ["featured", "writing"],
+    "active": true,
+    "order": 1,
+    "createdAt": "2024-01-02T00:00:00.000Z",
+    "updatedAt": "2024-01-02T00:00:00.000Z"
+  },
+  {
+    "id": "3c4d5e6f-1111-2222-3333-cbcdefabcdef",
+    "title": "YouTube",
+    "url": "https://www.youtube.com/@example",
+    "slug": "youtube",
+    "description": "Tutoriales semanales sobre desarrollo web.",
+    "icon": "▶️",
+    "categories": ["video"],
+    "active": true,
+    "order": 2,
+    "createdAt": "2024-01-03T00:00:00.000Z",
+    "updatedAt": "2024-01-03T00:00:00.000Z"
+  }
+]
