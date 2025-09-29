@@ -47,8 +47,8 @@ app.use(
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: config.env === 'production',
-      sameSite: config.env === 'production' ? 'strict' : 'lax'
+      secure: config.sessionCookieSecure,
+      sameSite: config.sessionCookieSecure ? 'strict' : 'lax'
     }
   })
 );
