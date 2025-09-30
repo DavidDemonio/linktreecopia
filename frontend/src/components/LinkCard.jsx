@@ -15,6 +15,8 @@ export default function LinkCard({ link, stylePreset, preview = false }) {
   const textColor = stylePreset?.textColor || '#0f172a';
   const iconBackground = stylePreset?.iconBackground || 'rgba(255,255,255,0.25)';
   const accentColor = stylePreset?.accent || textColor;
+  const paddingX = stylePreset?.paddingX ?? 24;
+  const paddingY = stylePreset?.paddingY ?? 20;
 
   return (
     <motion.a
@@ -22,13 +24,14 @@ export default function LinkCard({ link, stylePreset, preview = false }) {
       onClick={onClick}
       target="_self"
       rel="noopener noreferrer"
-      className="group flex items-center justify-between gap-5 border px-5 py-5 transition-all duration-200"
+      className="group flex items-center justify-between gap-5 border transition-all duration-200"
       style={{
         borderColor,
         borderRadius: stylePreset?.borderRadius || '26px',
         background,
         color: textColor,
-        boxShadow: stylePreset?.boxShadow || '0 18px 35px rgba(15,23,42,0.25)'
+        boxShadow: stylePreset?.boxShadow || '0 18px 35px rgba(15,23,42,0.25)',
+        padding: `${paddingY}px ${paddingX}px`
       }}
       whileHover={{ y: -3, scale: 1.01 }}
       whileTap={{ scale: 0.99 }}

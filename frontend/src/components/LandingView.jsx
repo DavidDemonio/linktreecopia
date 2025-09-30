@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import ThemeToggle from './ThemeToggle.jsx';
 import LinkCard from './LinkCard.jsx';
 import { mergeDesign, computeBackgroundStyles, computeLinkStyle, computeSurfaceStyle } from '../utils/design.js';
+import { useTheme } from './ThemeProvider.jsx';
 
 const listVariants = {
   hidden: {},
@@ -25,9 +26,9 @@ const sectionLabels = {
 };
 
 function CategoryChip({ label, active, onClick, palette, color }) {
-  const baseBorder = palette?.glass || 'rgba(255,255,255,0.2)';
-  const activeText = palette?.text || '#f8fafc';
-  const mutedText = palette?.textMuted || 'rgba(226,232,240,0.8)';
+  const baseBorder = palette?.glass || 'rgba(148,163,184,0.25)';
+  const activeText = palette?.text || '#1f2937';
+  const mutedText = palette?.textMuted || 'rgba(148,163,184,0.85)';
   return (
     <button
       type="button"
@@ -58,10 +59,14 @@ export default function LandingView({
   preview = false
 }) {
   const safeDesign = useMemo(() => mergeDesign(design), [design]);
-  const backgroundStyles = useMemo(() => computeBackgroundStyles(safeDesign.background), [safeDesign]);
-  const linkStyle = useMemo(() => computeLinkStyle(safeDesign), [safeDesign]);
-  const surfaceStyle = useMemo(() => computeSurfaceStyle(safeDesign), [safeDesign]);
-  const palette = safeDesign.palette;
+  const { theme } = useTheme();
+  const backgroundStyles = useMemo(
+    () => computeBackgroundStyles(safeDesign.background, theme),
+    [safeDesign, theme]
+  );
+  const linkStyle = useMemo(() => computeLinkStyle(safeDesign, theme), [safeDesign, theme]);
+  const surfaceStyle = useMemo(() => computeSurfaceStyle(safeDesign, theme), [safeDesign, theme]);
+  const palette = safeDesign.palette?.[theme] || safeDesign.palette?.dark;
 
   const filteredLinks = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -83,6 +88,7 @@ export default function LandingView({
   }, [links, activeCategory, search]);
 
   const alignment = safeDesign.layout.alignment || 'center';
+  const canvas = safeDesign.layout.canvas;
   const alignmentClass =
     alignment === 'left' ? 'items-start text-left' : alignment === 'right' ? 'items-end text-right' : 'items-center text-center';
 
@@ -113,7 +119,7 @@ export default function LandingView({
           </div>
             <div className="flex flex-col gap-3">
               <div className="flex flex-col gap-1">
-                <span className="text-xs uppercase tracking-[0.35em]" style={{ color: palette.textMuted }}>
+                <span className="text-xs uppercase tracking-[0.35em]" style={{ color: surfaceStyle.textMuted }}>
                   {safeDesign.profile.socialHandle}
                 </span>
                 <h1 className="text-4xl font-bold tracking-tight" style={{ color: palette.text }}>
@@ -121,7 +127,7 @@ export default function LandingView({
                 </h1>
               </div>
             {safeDesign.profile.bio && (
-              <p className="max-w-xl text-base" style={{ color: palette.textMuted }}>
+              <p className="max-w-xl text-base" style={{ color: surfaceStyle.textMuted }}>
                 {safeDesign.profile.bio}
               </p>
             )}
@@ -152,7 +158,7 @@ export default function LandingView({
       key="filters"
       className="w-full rounded-[28px] border px-6 py-6 backdrop-blur-xl"
       style={{
-        backgroundColor: `${surfaceStyle.backgroundColor}dd`,
+        backgroundColor: surfaceStyle.softBackground,
         borderColor: surfaceStyle.borderColor,
         color: surfaceStyle.color
       }}
@@ -165,7 +171,7 @@ export default function LandingView({
               label="Todos"
               active={activeCategory === 'all'}
               onClick={() => onCategoryChange('all')}
-              palette={safeDesign.palette}
+              palette={palette}
               color={linkStyle.accent}
             />
             {categories.map((category) => (
@@ -175,7 +181,7 @@ export default function LandingView({
                 color={category.color}
                 active={activeCategory === category.slug}
                 onClick={() => onCategoryChange(category.slug)}
-                palette={safeDesign.palette}
+                palette={palette}
               />
             ))}
           </div>
@@ -190,7 +196,7 @@ export default function LandingView({
                 placeholder="Buscar enlace..."
                 className="w-full rounded-full border px-5 py-3 text-sm focus:outline-none focus:ring-4"
                 style={{
-                  backgroundColor: 'rgba(15,23,42,0.35)',
+                  backgroundColor: surfaceStyle.fieldBackground,
                   borderColor: surfaceStyle.borderColor,
                   color: surfaceStyle.color
                 }}
@@ -211,14 +217,20 @@ export default function LandingView({
               key={index}
               className="h-24 rounded-[28px] border"
               style={{
-                backgroundColor: `${surfaceStyle.backgroundColor}88`,
+                backgroundColor: surfaceStyle.softBackground,
                 borderColor: surfaceStyle.borderColor
               }}
             />
           ))}
         </div>
       ) : filteredLinks.length > 0 ? (
-        <motion.div className="grid gap-4" initial="hidden" animate="visible" variants={listVariants}>
+        <motion.div
+          className="grid"
+          style={{ gap: `${linkStyle.gap}px` }}
+          initial="hidden"
+          animate="visible"
+          variants={listVariants}
+        >
           {filteredLinks.map((link) => (
             <motion.div key={link.id} variants={itemVariants}>
               <LinkCard link={link} stylePreset={linkStyle} preview={preview} />
@@ -229,7 +241,7 @@ export default function LandingView({
         <div
           className="rounded-[28px] border px-6 py-12 text-center text-sm"
           style={{
-            backgroundColor: `${surfaceStyle.backgroundColor}aa`,
+            backgroundColor: surfaceStyle.softBackground,
             borderColor: surfaceStyle.borderColor,
             color: surfaceStyle.color
           }}
@@ -247,8 +259,18 @@ export default function LandingView({
   };
 
   return (
-    <div className="min-h-screen" style={{ ...backgroundStyles, color: palette.text }}>
-      <div className={`mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-10 px-6 py-16 ${alignmentClass}`}>
+    <div className="min-h-screen" style={{ ...backgroundStyles, color: palette?.text }}>
+      <div
+        className={`mx-auto flex min-h-screen w-full flex-col ${alignmentClass}`}
+        style={{
+          maxWidth: canvas?.maxWidth || 900,
+          paddingLeft: canvas?.paddingX || 28,
+          paddingRight: canvas?.paddingX || 28,
+          paddingTop: canvas?.paddingY || 96,
+          paddingBottom: canvas?.paddingY || 96,
+          gap: canvas?.sectionSpacing || 44
+        }}
+      >
         {orderedSections.map((sectionKey) => sectionMap[sectionKey]).filter(Boolean)}
         {preview && (
           <div className="rounded-3xl border border-dashed border-white/30 px-6 py-4 text-xs uppercase tracking-[0.3em] text-white/70">

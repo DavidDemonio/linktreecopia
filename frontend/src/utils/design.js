@@ -35,6 +35,33 @@ function toRgba(color, alpha = 1) {
   return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
 }
 
+function parseColorToRgb(color) {
+  if (!color) {
+    return { r: 15, g: 23, b: 42 };
+  }
+  if (color.startsWith('rgb')) {
+    const values = color
+      .replace(/rgba?\(/, '')
+      .replace(')', '')
+      .split(',')
+      .map((value) => Number(value.trim()))
+      .filter((value, index) => index < 3);
+    if (values.length === 3 && values.every((value) => Number.isFinite(value))) {
+      return { r: values[0], g: values[1], b: values[2] };
+    }
+  }
+  const hex = hexToRgb(color);
+  if (hex) {
+    return hex;
+  }
+  return { r: 15, g: 23, b: 42 };
+}
+
+function withAlpha(color, alpha) {
+  const rgb = parseColorToRgb(color);
+  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${clamp(alpha, 0, 1)})`;
+}
+
 function mixColors(colorA, colorB, weight = 0.5) {
   const a = hexToRgb(colorA);
   const b = hexToRgb(colorB);
@@ -54,6 +81,38 @@ export function mergeDesign(design) {
   if (!design) {
     return base;
   }
+
+  const incomingPalette = design.palette || {};
+  const hasLegacyPalette = typeof incomingPalette.text === 'string' || typeof incomingPalette.surface === 'string';
+  const palette = hasLegacyPalette
+    ? {
+        dark: { ...base.palette.dark, ...incomingPalette },
+        light: { ...base.palette.light, ...incomingPalette }
+      }
+    : {
+        dark: { ...base.palette.dark, ...(incomingPalette.dark || {}) },
+        light: { ...base.palette.light, ...(incomingPalette.light || {}) }
+      };
+
+  const incomingLinkStyle = (design.layout && design.layout.linkStyle) || {};
+  const normalizedLinkStyle = {
+    ...base.layout.linkStyle,
+    ...incomingLinkStyle
+  };
+
+  if (incomingLinkStyle.textColor && !incomingLinkStyle.textColorDark) {
+    normalizedLinkStyle.textColorDark = incomingLinkStyle.textColor;
+  }
+  if (incomingLinkStyle.textColorLight == null && incomingLinkStyle.textColor && normalizedLinkStyle.textColorLight == null) {
+    normalizedLinkStyle.textColorLight = '#0f172a';
+  }
+  if (incomingLinkStyle.accentColor && !incomingLinkStyle.accentColorDark) {
+    normalizedLinkStyle.accentColorDark = incomingLinkStyle.accentColor;
+  }
+  if (incomingLinkStyle.accentColorLight == null && incomingLinkStyle.accentColor && normalizedLinkStyle.accentColorLight == null) {
+    normalizedLinkStyle.accentColorLight = incomingLinkStyle.accentColor;
+  }
+
   return {
     ...base,
     ...design,
@@ -71,30 +130,35 @@ export function mergeDesign(design) {
       sectionOrder: design.layout?.sectionOrder?.length
         ? Array.from(new Set([...design.layout.sectionOrder, ...base.layout.sectionOrder]))
         : base.layout.sectionOrder,
-      linkStyle: {
-        ...base.layout.linkStyle,
-        ...((design.layout && design.layout.linkStyle) || {})
+      linkStyle: normalizedLinkStyle,
+      canvas: {
+        ...base.layout.canvas,
+        ...((design.layout && design.layout.canvas) || {})
       }
     },
-    palette: {
-      ...base.palette,
-      ...(design.palette || {})
-    }
+    palette
   };
 }
 
-export function computeBackgroundStyles(design) {
+export function computeBackgroundStyles(design, theme = 'dark') {
   const safe = design || defaultDesign.background;
   const mode = safe.mode || 'gradient';
   const colors = Array.isArray(safe.colors) && safe.colors.length > 0 ? safe.colors : defaultDesign.background.colors;
   const angle = safe.angle ?? 135;
   const overlayOpacity = clamp(safe.overlayOpacity ?? 0.55, 0, 1);
-  const overlayStart = `rgba(10, 16, 26, ${overlayOpacity})`;
-  const overlayEnd = `rgba(15, 23, 42, ${overlayOpacity * 0.6})`;
+  const overlayStart = theme === 'dark' ? `rgba(10, 16, 26, ${overlayOpacity})` : `rgba(255, 255, 255, ${overlayOpacity * 0.9})`;
+  const overlayEnd = theme === 'dark' ? `rgba(15, 23, 42, ${overlayOpacity * 0.6})` : `rgba(255, 255, 255, ${overlayOpacity * 0.6})`;
 
-  const gradient = `linear-gradient(${angle}deg, ${colors.join(', ')})`;
+  const lightenWeight = theme === 'light' && !safe.customGradient ? 0.32 : 0;
+  const gradientColors = safe.customGradient
+    ? []
+    : colors.map((color) => (lightenWeight ? mixColors(color, '#ffffff', lightenWeight) : color));
+  const gradient = safe.customGradient && safe.customGradient.trim()
+    ? safe.customGradient.trim()
+    : `linear-gradient(${angle}deg, ${gradientColors.join(', ')})`;
   const noiseOpacity = clamp(safe.noiseOpacity ?? 0.1, 0, 0.6);
-  const noiseBackground = `linear-gradient(${angle + 45}deg, rgba(255,255,255,${noiseOpacity}) 0%, rgba(255,255,255,0) 60%)`;
+  const noiseBase = 255;
+  const noiseBackground = `linear-gradient(${angle + 45}deg, rgba(${noiseBase},${noiseBase},${noiseBase},${noiseOpacity}) 0%, rgba(${noiseBase},${noiseBase},${noiseBase},0) 60%)`;
 
   if (mode === 'image' && safe.image) {
     return {
@@ -108,7 +172,9 @@ export function computeBackgroundStyles(design) {
 
   if (mode === 'color') {
     return {
-      background: colors[0] || '#0f172a'
+      background: safe.customGradient && safe.customGradient.trim()
+        ? safe.customGradient.trim()
+        : colors[0] || '#0f172a'
     };
   }
 
@@ -119,39 +185,56 @@ export function computeBackgroundStyles(design) {
   };
 }
 
-export function computeLinkStyle(design) {
+export function computeLinkStyle(design, theme = 'dark') {
   const layout = design.layout || defaultDesign.layout;
   const linkStyle = layout.linkStyle || defaultDesign.layout.linkStyle;
   const colors = design.background?.colors?.length ? design.background.colors : defaultDesign.background.colors;
-  const primary = colors[0];
-  const secondary = colors[colors.length - 1];
+  const primary = theme === 'light' ? mixColors(colors[0], '#ffffff', 0.2) : colors[0];
+  const secondary = theme === 'light' ? mixColors(colors[colors.length - 1], '#ffffff', 0.2) : colors[colors.length - 1];
   const middle = mixColors(primary, secondary, 0.5);
   const transparency = clamp(linkStyle.transparency ?? 0.35, 0, 1);
   const gradientStrength = clamp(linkStyle.gradientStrength ?? 0.5, 0, 1);
-  const accent = linkStyle.accentColor || secondary;
-  const background = `linear-gradient(135deg, ${toRgba(primary, transparency + gradientStrength * 0.25)}, ${toRgba(
-    secondary,
-    transparency + gradientStrength * 0.4
-  )})`;
-  const borderColor = toRgba('#ffffff', 0.12 + gradientStrength * 0.05);
+  const accent = theme === 'light'
+    ? linkStyle.accentColorLight || linkStyle.accentColor || secondary
+    : linkStyle.accentColorDark || linkStyle.accentColor || secondary;
+  const background = linkStyle.customGradient && linkStyle.customGradient.trim()
+    ? linkStyle.customGradient.trim()
+    : `linear-gradient(135deg, ${toRgba(primary, transparency + gradientStrength * 0.25)}, ${toRgba(
+        secondary,
+        transparency + gradientStrength * 0.4
+      )})`;
+  const borderBase = theme === 'light' ? '#0f172a' : '#ffffff';
+  const borderColor = toRgba(borderBase, 0.12 + gradientStrength * 0.05);
   const iconBackground = toRgba(middle, clamp(0.25 + gradientStrength * 0.2, 0, 0.75));
   const glow = linkStyle.glow !== false ? `0 18px 35px ${toRgba(accent, 0.18)}` : 'none';
+  const textColor = theme === 'light'
+    ? linkStyle.textColorLight || '#0f172a'
+    : linkStyle.textColorDark || linkStyle.textColor || '#f9fafb';
 
   return {
     background,
     borderColor,
     iconBackground,
-    textColor: linkStyle.textColor || '#0f172a',
+    textColor,
     accent,
     borderRadius: `${linkStyle.borderRadius ?? 24}px`,
-    boxShadow: glow
+    boxShadow: glow,
+    paddingX: linkStyle.paddingX ?? defaultDesign.layout.linkStyle.paddingX,
+    paddingY: linkStyle.paddingY ?? defaultDesign.layout.linkStyle.paddingY,
+    gap: linkStyle.gap ?? defaultDesign.layout.linkStyle.gap
   };
 }
 
-export function computeSurfaceStyle(design) {
+export function computeSurfaceStyle(design, theme = 'dark') {
+  const palette = design.palette || defaultDesign.palette;
+  const themePalette = palette[theme] || palette.dark || defaultDesign.palette.dark;
+  const baseSurface = themePalette.surface || defaultDesign.palette.dark.surface;
   return {
-    backgroundColor: design.palette?.surface || defaultDesign.palette.surface,
-    color: design.palette?.text || defaultDesign.palette.text,
-    borderColor: design.palette?.glass || 'rgba(255,255,255,0.12)'
+    backgroundColor: baseSurface,
+    color: themePalette.text || defaultDesign.palette.dark.text,
+    borderColor: themePalette.glass || defaultDesign.palette.dark.glass,
+    textMuted: themePalette.textMuted || defaultDesign.palette.dark.textMuted,
+    softBackground: withAlpha(baseSurface, theme === 'dark' ? 0.75 : 0.82),
+    fieldBackground: withAlpha(baseSurface, theme === 'dark' ? 0.6 : 0.9)
   };
 }

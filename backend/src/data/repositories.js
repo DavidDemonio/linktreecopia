@@ -45,6 +45,67 @@ export async function saveDesign(design) {
 
 export async function updateDesign(payload) {
   const current = await getDesign();
+
+  const normalizePalette = (palette) => {
+    if (!palette) return {};
+    if (typeof palette.text === 'string' || typeof palette.surface === 'string') {
+      return {
+        dark: { ...palette },
+        light: { ...palette }
+      };
+    }
+    return {
+      dark: { ...(palette.dark || {}) },
+      light: { ...(palette.light || {}) }
+    };
+  };
+
+  const basePalette = defaultDesign.palette;
+  const currentPalette = normalizePalette(current?.palette);
+  const payloadPalette = normalizePalette(payload?.palette);
+
+  const baseLinkStyle = defaultDesign.layout.linkStyle;
+  const currentLinkStyle = (current?.layout && current.layout.linkStyle) || {};
+  const payloadLinkStyle = (payload?.layout && payload.layout.linkStyle) || {};
+
+  const normalizedLinkStyle = {
+    ...baseLinkStyle,
+    ...currentLinkStyle,
+    ...payloadLinkStyle
+  };
+
+  const applyLegacyLinkColors = (source) => {
+    if (!source) return;
+    if (source.textColor && !source.textColorDark) {
+      normalizedLinkStyle.textColorDark = source.textColor;
+    }
+    if (source.textColorLight && normalizedLinkStyle.textColorLight == null) {
+      normalizedLinkStyle.textColorLight = source.textColorLight;
+    }
+    if (source.accentColor && !source.accentColorDark) {
+      normalizedLinkStyle.accentColorDark = source.accentColor;
+    }
+    if (source.accentColorLight && normalizedLinkStyle.accentColorLight == null) {
+      normalizedLinkStyle.accentColorLight = source.accentColorLight;
+    }
+  };
+
+  applyLegacyLinkColors(currentLinkStyle);
+  applyLegacyLinkColors(payloadLinkStyle);
+
+  const mergedPalette = {
+    dark: {
+      ...basePalette.dark,
+      ...(currentPalette.dark || {}),
+      ...(payloadPalette.dark || {})
+    },
+    light: {
+      ...basePalette.light,
+      ...(currentPalette.light || {}),
+      ...(payloadPalette.light || {})
+    }
+  };
+
   const next = {
     ...defaultDesign,
     ...current,
@@ -63,17 +124,14 @@ export async function updateDesign(payload) {
       ...defaultDesign.layout,
       ...(current?.layout || {}),
       ...(payload?.layout || {}),
-      linkStyle: {
-        ...defaultDesign.layout.linkStyle,
-        ...((current?.layout || {}).linkStyle || {}),
-        ...((payload?.layout || {}).linkStyle || {})
+      linkStyle: normalizedLinkStyle,
+      canvas: {
+        ...defaultDesign.layout.canvas,
+        ...((current?.layout || {}).canvas || {}),
+        ...((payload?.layout || {}).canvas || {})
       }
     },
-    palette: {
-      ...defaultDesign.palette,
-      ...(current?.palette || {}),
-      ...(payload?.palette || {})
-    }
+    palette: mergedPalette
   };
 
   if (!next.layout.sectionOrder?.length) {

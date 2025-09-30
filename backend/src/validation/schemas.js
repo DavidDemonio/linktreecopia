@@ -73,7 +73,8 @@ const designBackgroundSchema = z
     colors: z.array(colorStringSchema).min(1).max(6).optional(),
     image: z.string().trim().max(1024).optional().nullable(),
     overlayOpacity: z.number().min(0).max(1).optional(),
-    noiseOpacity: z.number().min(0).max(1).optional()
+    noiseOpacity: z.number().min(0).max(1).optional(),
+    customGradient: z.string().trim().max(400).optional().nullable()
   })
   .partial();
 
@@ -93,8 +94,25 @@ const designLinkStyleSchema = z
     transparency: z.number().min(0).max(1).optional(),
     gradientStrength: z.number().min(0).max(1).optional(),
     textColor: colorStringSchema.optional(),
+    textColorDark: colorStringSchema.optional(),
+    textColorLight: colorStringSchema.optional(),
     accentColor: colorStringSchema.optional(),
-    glow: z.boolean().optional()
+    accentColorDark: colorStringSchema.optional(),
+    accentColorLight: colorStringSchema.optional(),
+    glow: z.boolean().optional(),
+    paddingX: z.number().min(0).max(160).optional(),
+    paddingY: z.number().min(0).max(160).optional(),
+    gap: z.number().min(0).max(160).optional(),
+    customGradient: z.string().trim().max(400).optional().nullable()
+  })
+  .partial();
+
+const designCanvasSchema = z
+  .object({
+    maxWidth: z.number().min(320).max(1400).optional(),
+    paddingX: z.number().min(0).max(160).optional(),
+    paddingY: z.number().min(0).max(320).optional(),
+    sectionSpacing: z.number().min(8).max(200).optional()
   })
   .partial();
 
@@ -104,18 +122,29 @@ const designLayoutSchema = z
     sectionOrder: z.array(z.enum(['profile', 'filters', 'links'])).min(1).optional(),
     showSearch: z.boolean().optional(),
     showCategories: z.boolean().optional(),
-    linkStyle: designLinkStyleSchema.optional()
+    linkStyle: designLinkStyleSchema.optional(),
+    canvas: designCanvasSchema.optional()
   })
   .partial();
 
-const designPaletteSchema = z
+const paletteModeSchema = z
   .object({
     text: colorStringSchema.optional(),
     textMuted: colorStringSchema.optional(),
-    surface: z.string().trim().min(1).max(120).optional(),
-    glass: z.string().trim().min(1).max(120).optional()
+    surface: z.string().trim().min(1).max(160).optional(),
+    glass: z.string().trim().min(1).max(160).optional()
   })
   .partial();
+
+const designPaletteSchema = z.union([
+  paletteModeSchema,
+  z
+    .object({
+      dark: paletteModeSchema.optional(),
+      light: paletteModeSchema.optional()
+    })
+    .partial()
+]);
 
 export const updateDesignSchema = z
   .object({

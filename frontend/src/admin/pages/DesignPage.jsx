@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -37,6 +37,8 @@ function SortableSection({ id, label }) {
   );
 }
 
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
 export default function DesignPage() {
   const { apiFetch, getCsrfToken } = useAdmin();
   const { pushToast } = useToasts();
@@ -48,6 +50,10 @@ export default function DesignPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [paletteMode, setPaletteMode] = useState('dark');
+
+  const previewContainerRef = useRef(null);
+  const buttonDemoRef = useRef(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -55,6 +61,137 @@ export default function DesignPage() {
         distance: 8
       }
     })
+  );
+
+  const handleCanvasUpdate = useCallback((updates) => {
+    setDraft((prev) => ({
+      ...prev,
+      layout: {
+        ...prev.layout,
+        canvas: {
+          ...prev.layout.canvas,
+          ...updates
+        }
+      }
+    }));
+  }, []);
+
+  const handleLinkStyleUpdate = useCallback((updates) => {
+    setDraft((prev) => ({
+      ...prev,
+      layout: {
+        ...prev.layout,
+        linkStyle: {
+          ...prev.layout.linkStyle,
+          ...updates
+        }
+      }
+    }));
+  }, []);
+
+  const handlePaletteChange = useCallback((mode, field, value) => {
+    setDraft((prev) => ({
+      ...prev,
+      palette: {
+        ...prev.palette,
+        [mode]: {
+          ...(prev.palette?.[mode] || {}),
+          [field]: value
+        }
+      }
+    }));
+  }, []);
+
+  const startCanvasWidthDrag = useCallback(
+    (event) => {
+      event.preventDefault();
+      const startX = event.clientX;
+      const baseWidth = draft?.layout?.canvas?.maxWidth ?? defaultDesign.layout.canvas.maxWidth;
+
+      const onPointerMove = (moveEvent) => {
+        const delta = moveEvent.clientX - startX;
+        const nextWidth = clamp(baseWidth + delta, 360, 1280);
+        handleCanvasUpdate({ maxWidth: Math.round(nextWidth) });
+      };
+
+      const stop = () => {
+        window.removeEventListener('pointermove', onPointerMove);
+        window.removeEventListener('pointerup', stop);
+      };
+
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', stop, { once: true });
+    },
+    [draft?.layout?.canvas?.maxWidth, handleCanvasUpdate]
+  );
+
+  const startCanvasPaddingDrag = useCallback(
+    (event) => {
+      event.preventDefault();
+      const startY = event.clientY;
+      const basePadding = draft?.layout?.canvas?.paddingY ?? defaultDesign.layout.canvas.paddingY;
+
+      const onPointerMove = (moveEvent) => {
+        const delta = startY - moveEvent.clientY;
+        const nextPadding = clamp(basePadding + delta, 48, 240);
+        handleCanvasUpdate({ paddingY: Math.round(nextPadding) });
+      };
+
+      const stop = () => {
+        window.removeEventListener('pointermove', onPointerMove);
+        window.removeEventListener('pointerup', stop);
+      };
+
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', stop, { once: true });
+    },
+    [draft?.layout?.canvas?.paddingY, handleCanvasUpdate]
+  );
+
+  const startButtonWidthDrag = useCallback(
+    (event) => {
+      event.preventDefault();
+      const startX = event.clientX;
+      const basePadding = draft?.layout?.linkStyle?.paddingX ?? defaultDesign.layout.linkStyle.paddingX;
+
+      const onPointerMove = (moveEvent) => {
+        const delta = moveEvent.clientX - startX;
+        const nextPadding = clamp(basePadding + delta / 2, 16, 80);
+        handleLinkStyleUpdate({ paddingX: Math.round(nextPadding) });
+      };
+
+      const stop = () => {
+        window.removeEventListener('pointermove', onPointerMove);
+        window.removeEventListener('pointerup', stop);
+      };
+
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', stop, { once: true });
+    },
+    [draft?.layout?.linkStyle?.paddingX, handleLinkStyleUpdate]
+  );
+
+  const startButtonHeightDrag = useCallback(
+    (event) => {
+      event.preventDefault();
+      const startY = event.clientY;
+      const basePadding = draft?.layout?.linkStyle?.paddingY ?? defaultDesign.layout.linkStyle.paddingY;
+
+      const onPointerMove = (moveEvent) => {
+        const delta = moveEvent.clientY - startY;
+        const nextPadding = clamp(basePadding + delta / 2, 12, 64);
+        handleLinkStyleUpdate({ paddingY: Math.round(nextPadding) });
+      };
+
+      const stop = () => {
+        window.removeEventListener('pointermove', onPointerMove);
+        window.removeEventListener('pointerup', stop);
+      };
+
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', stop, { once: true });
+    },
+    [draft?.layout?.linkStyle?.paddingY, handleLinkStyleUpdate]
   );
 
   const loadData = useCallback(async () => {
@@ -81,6 +218,10 @@ export default function DesignPage() {
   }, [loadData]);
 
   const previewLinks = useMemo(() => links.slice(0, 6), [links]);
+  const canvasValues = draft?.layout?.canvas || defaultDesign.layout.canvas;
+  const linkStyleValues = draft?.layout?.linkStyle || defaultDesign.layout.linkStyle;
+  const paletteValues = draft?.palette?.[paletteMode] || defaultDesign.palette[paletteMode];
+  const previewCanvasWidth = Math.round(clamp((canvasValues?.maxWidth || 900) / 2, 260, 520));
 
   const handleBackgroundColorChange = (index, value) => {
     setDraft((prev) => {
@@ -111,6 +252,16 @@ export default function DesignPage() {
     });
   };
 
+  const handleBackgroundGradientChange = (value) => {
+    setDraft((prev) => ({
+      ...prev,
+      background: {
+        ...prev.background,
+        customGradient: value
+      }
+    }));
+  };
+
   const handleRemoveBackgroundColor = (index) => {
     setDraft((prev) => {
       const colors = [...(prev?.background?.colors || [])];
@@ -124,6 +275,10 @@ export default function DesignPage() {
         }
       };
     });
+  };
+
+  const handleLinkGradientChange = (value) => {
+    handleLinkStyleUpdate({ customGradient: value });
   };
 
   const handleUpload = async (event, target) => {
@@ -189,9 +344,14 @@ export default function DesignPage() {
         profile: { ...draft.profile },
         layout: {
           ...draft.layout,
-          linkStyle: { ...draft.layout.linkStyle }
+          linkStyle: { ...draft.layout.linkStyle },
+          canvas: { ...draft.layout.canvas }
         },
-        palette: { ...draft.palette }
+        palette: {
+          ...draft.palette,
+          dark: { ...(draft.palette?.dark || {}) },
+          light: { ...(draft.palette?.light || {}) }
+        }
       };
       const result = await apiFetch('/admin/api/design', {
         method: 'PUT',
@@ -327,6 +487,18 @@ export default function DesignPage() {
                     }
                   />
                 </div>
+                <div className="space-y-2">
+                  <label className="text-xs uppercase tracking-[0.3em] text-slate-300">Degradado CSS manual</label>
+                  <textarea
+                    value={draft.background.customGradient || ''}
+                    onChange={(event) => handleBackgroundGradientChange(event.target.value)}
+                    placeholder="linear-gradient(135deg, rgba(15,23,42,0.8), rgba(147,51,234,0.8))"
+                    className="h-16 w-full rounded-2xl border border-white/10 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-white/60 focus:border-indigo-400 focus:outline-none"
+                  />
+                  <p className="text-[11px] leading-snug text-slate-400">
+                    Si se define, se utilizará este valor exacto. Deja el campo vacío para generar el degradado automáticamente.
+                  </p>
+                </div>
               </div>
             )}
 
@@ -402,6 +574,79 @@ export default function DesignPage() {
                 <img src={draft.background.image} alt="Fondo" className="h-28 w-full rounded-2xl object-cover" />
               )}
             </div>
+          </div>
+        </div>
+
+        <div className="glass-card bg-slate-950/60 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold">Paleta por modo</h3>
+              <p className="text-sm text-slate-300">Ajusta colores para los modos oscuro y claro del landing.</p>
+            </div>
+            <div className="flex gap-2">
+              {['dark', 'light'].map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setPaletteMode(mode)}
+                  className={`rounded-full px-3 py-1.5 text-xs uppercase tracking-[0.2em] transition ${
+                    paletteMode === mode
+                      ? 'bg-indigo-500 text-white shadow-lg'
+                      : 'border border-white/20 bg-white/10 text-white/70 hover:border-indigo-400 hover:text-white'
+                  }`}
+                >
+                  {mode === 'dark' ? 'Modo oscuro' : 'Modo claro'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-5 space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs uppercase tracking-[0.3em] text-slate-300">Texto principal</label>
+                <input
+                  type="color"
+                  value={paletteValues?.text || (paletteMode === 'dark' ? '#f8fafc' : '#0f172a')}
+                  onChange={(event) => handlePaletteChange(paletteMode, 'text', event.target.value)}
+                  className="h-10 w-full cursor-pointer rounded-full border border-white/20 bg-transparent"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs uppercase tracking-[0.3em] text-slate-300">Texto secundario</label>
+                <input
+                  type="color"
+                  value={paletteValues?.textMuted || (paletteMode === 'dark' ? '#cbd5f5' : '#334155')}
+                  onChange={(event) => handlePaletteChange(paletteMode, 'textMuted', event.target.value)}
+                  className="h-10 w-full cursor-pointer rounded-full border border-white/20 bg-transparent"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs uppercase tracking-[0.3em] text-slate-300">Superficie</label>
+                <input
+                  type="text"
+                  value={paletteValues?.surface || ''}
+                  onChange={(event) => handlePaletteChange(paletteMode, 'surface', event.target.value)}
+                  placeholder={paletteMode === 'dark' ? 'rgba(15,23,42,0.72)' : 'rgba(255,255,255,0.9)'}
+                  className="w-full rounded-2xl border border-white/10 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-white/60 focus:border-indigo-400 focus:outline-none"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs uppercase tracking-[0.3em] text-slate-300">Cristal</label>
+                <input
+                  type="text"
+                  value={paletteValues?.glass || ''}
+                  onChange={(event) => handlePaletteChange(paletteMode, 'glass', event.target.value)}
+                  placeholder={paletteMode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.08)'}
+                  className="w-full rounded-2xl border border-white/10 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-white/60 focus:border-indigo-400 focus:outline-none"
+                />
+              </div>
+            </div>
+            <p className="text-[11px] leading-snug text-slate-400">
+              Estos valores controlan los contrastes para cada modo. Usa formatos HEX o RGBA para superficies translúcidas.
+            </p>
           </div>
         </div>
 
@@ -617,6 +862,68 @@ export default function DesignPage() {
                 />
               </div>
             </div>
+            <div className="space-y-2">
+              <label className="text-xs uppercase tracking-[0.3em] text-slate-300">Degradado CSS de los botones</label>
+              <textarea
+                value={draft.layout.linkStyle.customGradient || ''}
+                onChange={(event) => handleLinkGradientChange(event.target.value)}
+                placeholder="linear-gradient(135deg, rgba(99,102,241,0.65), rgba(244,114,182,0.7))"
+                className="h-16 w-full rounded-2xl border border-white/10 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-white/60 focus:border-indigo-400 focus:outline-none"
+              />
+              <p className="text-[11px] leading-snug text-slate-400">
+                Define un degradado completo en CSS o deja el campo vacío para generar uno automático según los colores del fondo.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs uppercase tracking-[0.3em] text-slate-300">Texto modo oscuro</label>
+                <input
+                  type="color"
+                  value={draft.layout.linkStyle.textColorDark || '#f9fafb'}
+                  onChange={(event) => handleLinkStyleUpdate({ textColorDark: event.target.value })}
+                  className="h-10 w-full cursor-pointer rounded-full border border-white/20 bg-transparent"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs uppercase tracking-[0.3em] text-slate-300">Texto modo claro</label>
+                <input
+                  type="color"
+                  value={draft.layout.linkStyle.textColorLight || '#0f172a'}
+                  onChange={(event) => handleLinkStyleUpdate({ textColorLight: event.target.value })}
+                  className="h-10 w-full cursor-pointer rounded-full border border-white/20 bg-transparent"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs uppercase tracking-[0.3em] text-slate-300">Acento modo oscuro</label>
+                <input
+                  type="color"
+                  value={draft.layout.linkStyle.accentColorDark || '#a855f7'}
+                  onChange={(event) => handleLinkStyleUpdate({ accentColorDark: event.target.value })}
+                  className="h-10 w-full cursor-pointer rounded-full border border-white/20 bg-transparent"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs uppercase tracking-[0.3em] text-slate-300">Acento modo claro</label>
+                <input
+                  type="color"
+                  value={draft.layout.linkStyle.accentColorLight || '#6d28d9'}
+                  onChange={(event) => handleLinkStyleUpdate({ accentColorLight: event.target.value })}
+                  className="h-10 w-full cursor-pointer rounded-full border border-white/20 bg-transparent"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs uppercase tracking-[0.3em] text-slate-300">Separación entre botones</label>
+              <input
+                type="range"
+                min="8"
+                max="60"
+                value={Math.round(draft.layout.linkStyle.gap ?? linkStyleValues.gap ?? 20)}
+                onChange={(event) => handleLinkStyleUpdate({ gap: Number(event.target.value) })}
+              />
+            </div>
             <label className="flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-slate-300">
               <input
                 type="checkbox"
@@ -634,6 +941,66 @@ export default function DesignPage() {
               />
               Brillo sutil
             </label>
+          </div>
+        </div>
+
+        <div className="glass-card bg-slate-950/60 text-white">
+          <h3 className="text-lg font-semibold">Tamaños interactivos</h3>
+          <p className="mt-1 text-sm text-slate-300">Arrastra los controladores para ajustar el ancho del lienzo y la dimensión de los botones.</p>
+
+          <div className="mt-5 space-y-6">
+            <div
+              ref={previewContainerRef}
+              className="relative mx-auto flex min-h-[180px] w-full max-w-[520px] flex-col items-center justify-center rounded-[32px] border border-dashed border-white/20 bg-white/5 px-6 py-10 text-xs uppercase tracking-[0.25em] text-white/70"
+              style={{ width: `${previewCanvasWidth}px` }}
+            >
+              <span>Ancho actual · {canvasValues.maxWidth}px · Padding vertical {canvasValues.paddingY}px</span>
+              <button
+                type="button"
+                onPointerDown={startCanvasWidthDrag}
+                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 rounded-full border border-indigo-300/60 bg-indigo-500/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.3em] text-white shadow-lg"
+              >
+                ⇔
+              </button>
+              <button
+                type="button"
+                onPointerDown={startCanvasPaddingDrag}
+                className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 rounded-full border border-indigo-300/60 bg-indigo-500/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.3em] text-white shadow-lg"
+              >
+                ⇕
+              </button>
+            </div>
+
+            <div className="relative mx-auto w-full max-w-[360px]">
+              <div
+                ref={buttonDemoRef}
+                className="relative mx-auto flex max-w-full flex-col items-center gap-3"
+              >
+                <div
+                  className="w-full rounded-full border border-white/20 bg-white/10 text-center text-sm font-semibold uppercase tracking-[0.3em] text-white/80"
+                  style={{ padding: `${linkStyleValues.paddingY || 18}px ${linkStyleValues.paddingX || 28}px` }}
+                >
+                  Botón de muestra
+                </div>
+                <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400">
+                  Padding: {linkStyleValues.paddingY}px · {linkStyleValues.paddingX}px
+                </div>
+                <button
+                  type="button"
+                  onPointerDown={startButtonWidthDrag}
+                  className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 rounded-full border border-indigo-300/60 bg-indigo-500/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.3em] text-white shadow-lg"
+                >
+                  ⇔
+                </button>
+                <button
+                  type="button"
+                  onPointerDown={startButtonHeightDrag}
+                  className="absolute left-1/2 bottom-0 translate-y-1/2 -translate-x-1/2 rounded-full border border-indigo-300/60 bg-indigo-500/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.3em] text-white shadow-lg"
+                >
+                  ⇕
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
