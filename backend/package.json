@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "build": "node ./scripts/build.js",
-    "start": "node src/server.js"
+    "start": "cross-env NODE_ENV=production node src/server.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -21,6 +21,7 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "cross-env": "^7.0.3",
     "nodemon": "^3.0.2"
   }
 }
