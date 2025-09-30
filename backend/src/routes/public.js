@@ -41,7 +41,7 @@ router.get('/categories', async (req, res, next) => {
   }
 });
 
-router.get('/go/:slug', redirectRateLimiter, async (req, res, next) => {
+export async function handleRedirect(req, res, next) {
   try {
     const slug = req.params.slug;
     const links = await getLinks();
@@ -68,6 +68,8 @@ router.get('/go/:slug', redirectRateLimiter, async (req, res, next) => {
   } catch (error) {
     next(error);
   }
-});
+}
+
+router.get('/go/:slug', redirectRateLimiter, handleRedirect);
 
 export default router;

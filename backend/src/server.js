@@ -8,6 +8,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { config } from './config/env.js';
 import publicRoutes from './routes/public.js';
+import redirectRoutes from './routes/redirect.js';
 import adminRoutes from './routes/admin.js';
 import { notFoundHandler, errorHandler } from './middleware/error.js';
 
@@ -57,6 +58,7 @@ const csrfProtection = csurf();
 app.use('/admin/api', csrfProtection);
 
 app.use('/api', publicRoutes);
+app.use('/', redirectRoutes);
 app.use('/admin/api', adminRoutes);
 
 if (config.env === 'production') {
