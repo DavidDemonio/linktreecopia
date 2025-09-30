@@ -15,5 +15,7 @@ export const config = {
   adminPass: process.env.ADMIN_PASS || 'admin123',
   sessionSecret: process.env.SESSION_SECRET || 'supersecret',
   env: process.env.NODE_ENV || 'development',
-  hashSalt: process.env.HASH_SALT || process.env.SESSION_SECRET || 'supersecret'
+  hashSalt: process.env.HASH_SALT || process.env.SESSION_SECRET || 'supersecret',
+  sessionCookieSecure:
+    (process.env.SESSION_COOKIE_SECURE || 'false').toLowerCase() === 'true'
 };

@@ -151,18 +151,99 @@ function sortLinks(links) {
   return [...links].sort((a, b) => a.order - b.order);
 }
 
-export async function recordClick(linkId, fingerprint) {
+export async function recordClick(linkId, { fingerprint, ip, referer, userAgent }) {
   const today = new Date().toISOString().slice(0, 10);
   return updateJson(STATS_FILE, async (stats = {}) => {
     const linkStats = stats[linkId] || { totalClicks: 0, daily: {} };
     linkStats.totalClicks += 1;
-    const dayStats = linkStats.daily[today] || { total: 0, uniques: [], uniqueCount: 0 };
+    const dayStats =
+      linkStats.daily[today] ||
+      {
+        total: 0,
+        uniques: [],
+        uniqueCount: 0,
+        countries: {},
+        referrers: {}
+      };
     dayStats.total += 1;
     if (!dayStats.uniques.includes(fingerprint)) {
       dayStats.uniques.push(fingerprint);
       dayStats.uniqueCount = (dayStats.uniqueCount || 0) + 1;
     }
+    const overallCountries = linkStats.countries || {};
+    const overallReferrers = linkStats.referrers || {};
+
+    if (ip) {
+      const countryKey = ip.country || 'ZZ';
+      if (countryKey) {
+        const dayCountry = dayStats.countries?.[countryKey] || {
+          total: 0,
+          uniques: [],
+          uniqueCount: 0
+        };
+        dayCountry.total += 1;
+        if (!dayCountry.uniques.includes(fingerprint)) {
+          dayCountry.uniques.push(fingerprint);
+          dayCountry.uniqueCount = (dayCountry.uniqueCount || 0) + 1;
+        }
+        dayStats.countries = {
+          ...dayStats.countries,
+          [countryKey]: dayCountry
+        };
+
+        const overallCountry = overallCountries[countryKey] || {
+          total: 0,
+          uniques: [],
+          uniqueCount: 0
+        };
+        overallCountry.total += 1;
+        if (!overallCountry.uniques.includes(fingerprint)) {
+          overallCountry.uniques.push(fingerprint);
+          overallCountry.uniqueCount = (overallCountry.uniqueCount || 0) + 1;
+        }
+        overallCountries[countryKey] = overallCountry;
+      }
+    }
+
+    if (referer) {
+      const refererKey = referer.host || referer.source || referer;
+      const refererLabel = referer.source || referer.host || referer;
+      const dayReferer = dayStats.referrers?.[refererKey] || {
+        total: 0,
+        uniques: [],
+        uniqueCount: 0,
+        label: refererLabel
+      };
+      dayReferer.total += 1;
+      if (!dayReferer.uniques.includes(fingerprint)) {
+        dayReferer.uniques.push(fingerprint);
+        dayReferer.uniqueCount = (dayReferer.uniqueCount || 0) + 1;
+      }
+      dayReferer.label = dayReferer.label || refererLabel;
+      dayStats.referrers = {
+        ...dayStats.referrers,
+        [refererKey]: dayReferer
+      };
+
+      const overallReferer = overallReferrers[refererKey] || {
+        total: 0,
+        uniques: [],
+        uniqueCount: 0,
+        label: refererLabel
+      };
+      overallReferer.total += 1;
+      if (!overallReferer.uniques.includes(fingerprint)) {
+        overallReferer.uniques.push(fingerprint);
+        overallReferer.uniqueCount = (overallReferer.uniqueCount || 0) + 1;
+      }
+      overallReferer.label = overallReferer.label || refererLabel;
+      overallReferrers[refererKey] = overallReferer;
+    }
+
     linkStats.daily[today] = dayStats;
+    linkStats.countries = overallCountries;
+    linkStats.referrers = overallReferrers;
+    linkStats.lastUserAgent = userAgent || linkStats.lastUserAgent;
     stats[linkId] = linkStats;
     return stats;
   }, {});
@@ -171,9 +252,37 @@ export async function recordClick(linkId, fingerprint) {
 export async function normalizeStats() {
   return updateJson(STATS_FILE, async (stats = {}) => {
     Object.values(stats).forEach((linkStats) => {
+      if (linkStats.countries) {
+        Object.values(linkStats.countries).forEach((country) => {
+          if (Array.isArray(country.uniques)) {
+            country.uniqueCount = country.uniques.length;
+          }
+        });
+      }
+      if (linkStats.referrers) {
+        Object.values(linkStats.referrers).forEach((referrer) => {
+          if (Array.isArray(referrer.uniques)) {
+            referrer.uniqueCount = referrer.uniques.length;
+          }
+        });
+      }
       Object.entries(linkStats.daily || {}).forEach(([date, day]) => {
         if (Array.isArray(day.uniques)) {
           day.uniqueCount = day.uniques.length;
+        }
+        if (day.countries) {
+          Object.values(day.countries).forEach((country) => {
+            if (Array.isArray(country.uniques)) {
+              country.uniqueCount = country.uniques.length;
+            }
+          });
+        }
+        if (day.referrers) {
+          Object.values(day.referrers).forEach((referrer) => {
+            if (Array.isArray(referrer.uniques)) {
+              referrer.uniqueCount = referrer.uniques.length;
+            }
+          });
         }
       });
     });

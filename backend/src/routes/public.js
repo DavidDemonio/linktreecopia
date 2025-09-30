@@ -1,7 +1,8 @@
 import express from 'express';
 import { getLinks, getCategories, recordClick } from '../data/repositories.js';
 import { redirectRateLimiter } from '../middleware/rateLimit.js';
-import { createFingerprint } from '../utils/fingerprint.js';
+import { createFingerprint, getClientAddress } from '../utils/fingerprint.js';
+import { lookupCountry, parseReferer } from '../utils/analytics.js';
 
 const router = express.Router();
 
@@ -54,7 +55,15 @@ router.get('/go/:slug', redirectRateLimiter, async (req, res, next) => {
       });
     }
     const fingerprint = createFingerprint(req);
-    await recordClick(link.id, fingerprint);
+    const ipAddress = getClientAddress(req);
+    const countryCode = lookupCountry(ipAddress) || 'ZZ';
+    const referer = parseReferer(req.get('referer')) || { source: 'Directo', host: 'directo.local' };
+    await recordClick(link.id, {
+      fingerprint,
+      ip: { country: countryCode },
+      referer,
+      userAgent: req.get('user-agent') || ''
+    });
     res.redirect(302, link.url);
   } catch (error) {
     next(error);
