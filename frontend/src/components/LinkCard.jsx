@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 export default function LinkCard({ link }) {
   return (
     <motion.a
-      href={`/go/${link.slug}`}
+      href={`/api/go/${link.slug}`}
       target="_self"
       rel="noopener noreferrer"
       className="glass-card flex items-center justify-between gap-4"
