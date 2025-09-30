@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const dataDir = path.resolve(__dirname, '../../data');
+const dataDir = path.resolve(__dirname, '../../../data');
 
 const fileLocks = new Map();
 

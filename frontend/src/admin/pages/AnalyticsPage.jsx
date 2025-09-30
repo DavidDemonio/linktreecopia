@@ -3,6 +3,7 @@ import { Listbox } from '@headlessui/react';
 import { CheckIcon, ChevronUpDownIcon } from '@heroicons/react/24/outline';
 import { useAdmin } from '../context/AdminContext.jsx';
 import { useToasts } from '../context/ToastContext.jsx';
+import { ComposableMap, Geographies, Geography } from 'react-simple-maps';
 
 const ranges = [
   { label: 'Últimos 7 días', value: '7d' },
@@ -10,13 +11,16 @@ const ranges = [
   { label: 'Todo', value: 'all' }
 ];
 
+const geoUrl = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
+const numberFormatter = new Intl.NumberFormat('es-ES');
+
 export default function AnalyticsPage() {
   const { apiFetch } = useAdmin();
   const { pushToast } = useToasts();
   const [links, setLinks] = useState([]);
   const [selectedLink, setSelectedLink] = useState(null);
   const [range, setRange] = useState(ranges[0]);
-  const [stats, setStats] = useState({ totalClicks: 0, daily: [] });
+  const [stats, setStats] = useState({ totalClicks: 0, daily: [], countries: [], referrers: [] });
   const [loading, setLoading] = useState(false);
   const canvasRef = useRef(null);
 
@@ -119,6 +123,16 @@ export default function AnalyticsPage() {
     };
   }, [stats]);
 
+  const countryRanking = useMemo(() => {
+    const sorted = [...(stats.countries || [])].sort((a, b) => (b.total || 0) - (a.total || 0));
+    return sorted.map((country, index) => ({
+      ...country,
+      rank: index + 1
+    }));
+  }, [stats.countries]);
+
+  const topCountries = useMemo(() => countryRanking.slice(0, 6), [countryRanking]);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -198,6 +212,16 @@ export default function AnalyticsPage() {
           </div>
           <canvas ref={canvasRef} width={720} height={280} className="w-full" />
         </div>
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <WorldMapCard countries={countryRanking} loading={loading} />
+          </div>
+          <div className="flex flex-col gap-4">
+            <CountryBarChart countries={topCountries} loading={loading} />
+            <ReferrerList referrers={stats.referrers} loading={loading} />
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -211,4 +235,171 @@ function StatCard({ title, value, subtitle }) {
       <p className="text-xs text-slate-400">{subtitle}</p>
     </div>
   );
+}
+
+function WorldMapCard({ countries, loading }) {
+  const [hoveredCode, setHoveredCode] = useState(null);
+  const lookup = useMemo(() => {
+    const map = new Map();
+    countries.forEach((country) => {
+      if (country.code) {
+        map.set(country.code, country);
+      }
+    });
+    return map;
+  }, [countries]);
+
+  const maxValue = useMemo(() => {
+    return countries.reduce((acc, country) => Math.max(acc, country.total || 0), 0);
+  }, [countries]);
+
+  const hoveredCountry = hoveredCode ? lookup.get(hoveredCode) : null;
+
+  return (
+    <div className="h-full rounded-3xl border border-white/10 bg-slate-900/60 p-6">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3 text-sm text-slate-300">
+        <div>
+          <p className="font-medium text-white">Mapa mundial de visitas</p>
+          <p className="text-xs text-slate-400">
+            {loading ? 'Calculando...' : 'Resalta la distribución geográfica de tus visitantes.'}
+          </p>
+        </div>
+        {hoveredCountry && (
+          <div className="text-right text-xs text-slate-300">
+            <p className="font-semibold text-white">{hoveredCountry.name || hoveredCountry.code}</p>
+            <p>{numberFormatter.format(hoveredCountry.total || 0)} visitas</p>
+            <p className="text-slate-400">
+              {numberFormatter.format(hoveredCountry.uniques || 0)} visitantes únicos
+            </p>
+          </div>
+        )}
+      </div>
+      <div className="overflow-hidden rounded-2xl bg-slate-950/40">
+        <ComposableMap projectionConfig={{ scale: 140 }} className="w-full">
+          <Geographies geography={geoUrl}>
+            {({ geographies }) =>
+              geographies.map((geo) => {
+                const code = geo.properties.ISO_A2;
+                const data = lookup.get(code);
+                const intensity = data ? data.total || 0 : 0;
+                const fill = getCountryColor(intensity, maxValue);
+                return (
+                  <Geography
+                    key={geo.rsmKey}
+                    geography={geo}
+                    onMouseEnter={() => setHoveredCode(code || null)}
+                    onMouseLeave={() => setHoveredCode(null)}
+                    style={{
+                      default: { fill, outline: 'none', stroke: 'rgba(148, 163, 184, 0.2)', strokeWidth: 0.5 },
+                      hover: { fill: '#818cf8', outline: 'none' },
+                      pressed: { fill: '#6366f1', outline: 'none' }
+                    }}
+                  />
+                );
+              })
+            }
+          </Geographies>
+        </ComposableMap>
+      </div>
+      <div className="mt-4 flex items-center gap-3 text-xs text-slate-400">
+        <span>Menos</span>
+        <div className="h-2 flex-1 rounded-full bg-gradient-to-r from-slate-700 via-indigo-500 to-indigo-300" />
+        <span>Más</span>
+      </div>
+    </div>
+  );
+}
+
+function CountryBarChart({ countries, loading }) {
+  const maxValue = useMemo(() => {
+    return countries.reduce((acc, country) => Math.max(acc, country.total || 0), 0);
+  }, [countries]);
+
+  return (
+    <div className="rounded-3xl border border-white/10 bg-slate-900/60 p-6 text-sm text-slate-300">
+      <div className="mb-4">
+        <p className="font-medium text-white">Países destacados</p>
+        <p className="text-xs text-slate-400">
+          {loading ? 'Actualizando...' : 'Top visitantes según volumen de clicks.'}
+        </p>
+      </div>
+      <div className="space-y-3">
+        {countries.length === 0 ? (
+          <p className="text-xs text-slate-400">Aún no hay datos suficientes.</p>
+        ) : (
+          countries.map((country) => {
+            const percentage = maxValue > 0 ? Math.round((country.total / maxValue) * 100) : 0;
+            return (
+              <div key={country.code} className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium text-white">
+                    {country.rank ? `${country.rank}. ` : ''}
+                    {country.name || country.code}
+                  </span>
+                  <span>{numberFormatter.format(country.total || 0)} clicks</span>
+                </div>
+                <div className="h-2 w-full rounded-full bg-slate-800">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-indigo-300"
+                    style={{ width: `${Math.max(6, percentage)}%` }}
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  {numberFormatter.format(country.uniques || 0)} visitantes únicos
+                </p>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ReferrerList({ referrers = [], loading }) {
+  const topReferrers = useMemo(() => referrers.slice(0, 6), [referrers]);
+  return (
+    <div className="rounded-3xl border border-white/10 bg-slate-900/60 p-6 text-sm text-slate-300">
+      <div className="mb-4">
+        <p className="font-medium text-white">Fuentes principales</p>
+        <p className="text-xs text-slate-400">
+          {loading
+            ? 'Cargando...'
+            : 'Lugares desde donde llegaron tus visitantes más recientes.'}
+        </p>
+      </div>
+      {topReferrers.length === 0 ? (
+        <p className="text-xs text-slate-400">Sin referencias registradas todavía.</p>
+      ) : (
+        <ul className="space-y-2 text-xs">
+          {topReferrers.map((referrer) => (
+            <li
+              key={referrer.source}
+              className="flex items-center justify-between rounded-2xl bg-white/5 px-3 py-2 text-white/90"
+            >
+              <span className="truncate pr-2">{referrer.label || referrer.source}</span>
+              <span className="text-slate-300">
+                {numberFormatter.format(referrer.total || 0)} ·{' '}
+                {numberFormatter.format(referrer.uniques || 0)} únicos
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function getCountryColor(value, max) {
+  if (!max || !value) {
+    return '#1e293b';
+  }
+  const ratio = Math.min(1, value / max);
+  const start = [30, 41, 59];
+  const end = [99, 102, 241];
+  const channel = start.map((component, index) => {
+    const target = end[index];
+    return Math.round(component + (target - component) * ratio);
+  });
+  return `rgb(${channel[0]}, ${channel[1]}, ${channel[2]})`;
 }

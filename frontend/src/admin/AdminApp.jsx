@@ -9,6 +9,7 @@ import LinksPage from './pages/LinksPage.jsx';
 import CategoriesPage from './pages/CategoriesPage.jsx';
 import AnalyticsPage from './pages/AnalyticsPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
+import DesignPage from './pages/DesignPage.jsx';
 
 function ProtectedRoute() {
   const { user, loading } = useAdmin();
@@ -37,6 +38,7 @@ export default function AdminApp() {
               <Route index element={<Navigate to="links" replace />} />
               <Route path="links" element={<LinksPage />} />
               <Route path="categories" element={<CategoriesPage />} />
+              <Route path="design" element={<DesignPage />} />
               <Route path="analytics" element={<AnalyticsPage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>

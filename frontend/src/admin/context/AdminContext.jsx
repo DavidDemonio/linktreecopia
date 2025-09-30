@@ -38,17 +38,22 @@ export function AdminProvider({ children }) {
 
   const apiFetch = useCallback(
     async (url, options = {}) => {
-      const opts = {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(options.headers || {})
-        },
-        ...options
-      };
+      const isFormData = options.body instanceof FormData;
+      const headers = { ...(options.headers || {}) };
+      if (!isFormData && !headers['Content-Type']) {
+        headers['Content-Type'] = 'application/json';
+      }
       if (options.method && options.method !== 'GET') {
         const token = csrfToken || (await fetchCsrf());
-        opts.headers['X-CSRF-Token'] = token;
+        headers['X-CSRF-Token'] = token;
+      }
+      const opts = {
+        credentials: 'include',
+        ...options,
+        headers
+      };
+      if (!isFormData && options.body && typeof options.body !== 'string') {
+        opts.body = JSON.stringify(options.body);
       }
       const response = await fetch(url, opts);
       if (!response.ok) {
@@ -113,6 +118,11 @@ export function AdminProvider({ children }) {
     }
   }, [fetchCsrf]);
 
+  const getCsrfToken = useCallback(async () => {
+    const token = csrfToken || (await fetchCsrf());
+    return token;
+  }, [csrfToken, fetchCsrf]);
+
   const value = useMemo(
     () => ({
       user,
@@ -120,9 +130,10 @@ export function AdminProvider({ children }) {
       login,
       logout,
       apiFetch,
-      refresh
+      refresh,
+      getCsrfToken
     }),
-    [user, loading, login, logout, apiFetch, refresh]
+    [user, loading, login, logout, apiFetch, refresh, getCsrfToken]
   );
 
   return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>;
