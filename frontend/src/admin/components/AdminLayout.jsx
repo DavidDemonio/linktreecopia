@@ -1,12 +1,20 @@
 import React from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { Squares2X2Icon, LinkIcon, ChartBarIcon, Cog6ToothIcon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline';
+import {
+  Squares2X2Icon,
+  LinkIcon,
+  ChartBarIcon,
+  Cog6ToothIcon,
+  ArrowRightOnRectangleIcon,
+  PaintBrushIcon
+} from '@heroicons/react/24/outline';
 import ThemeToggle from '../../components/ThemeToggle.jsx';
 import { useAdmin } from '../context/AdminContext.jsx';
 
 const navItems = [
   { to: 'links', label: 'Links', icon: LinkIcon },
   { to: 'categories', label: 'Categorías', icon: Squares2X2Icon },
+  { to: 'design', label: 'Diseño', icon: PaintBrushIcon },
   { to: 'analytics', label: 'Analítica', icon: ChartBarIcon },
   { to: 'settings', label: 'Ajustes', icon: Cog6ToothIcon }
 ];

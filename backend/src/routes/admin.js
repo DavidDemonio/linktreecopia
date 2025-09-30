@@ -1,4 +1,8 @@
 import express from 'express';
+import multer from 'multer';
+import path from 'path';
+import { randomBytes } from 'crypto';
+import fs from 'fs/promises';
 import {
   getLinks,
   createLink,
@@ -9,12 +13,48 @@ import {
   createCategory,
   updateCategory,
   deleteCategory,
-  getStats
+  getStats,
+  getDesign,
+  updateDesign
 } from '../data/repositories.js';
-import { validate, createLinkSchema, updateLinkSchema, reorderLinksSchema, createCategorySchema, updateCategorySchema, loginSchema } from '../validation/schemas.js';
+import {
+  validate,
+  createLinkSchema,
+  updateLinkSchema,
+  reorderLinksSchema,
+  createCategorySchema,
+  updateCategorySchema,
+  loginSchema,
+  updateDesignSchema
+} from '../validation/schemas.js';
 import { requireAuth } from '../middleware/auth.js';
 import { config } from '../config/env.js';
 import { getCountryName } from '../utils/analytics.js';
+import { resolveDataPath } from '../data/storage.js';
+
+const uploadDir = resolveDataPath('uploads');
+
+const imageUpload = multer({
+  storage: multer.diskStorage({
+    destination(req, file, cb) {
+      fs.mkdir(uploadDir, { recursive: true })
+        .then(() => cb(null, uploadDir))
+        .catch((error) => cb(error));
+    },
+    filename(req, file, cb) {
+      const ext = path.extname(file.originalname || '').toLowerCase();
+      const name = randomBytes(12).toString('hex');
+      cb(null, `${Date.now()}-${name}${ext}`);
+    }
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter(req, file, cb) {
+    if (!file.mimetype?.startsWith('image/')) {
+      return cb(new Error('Solo se permiten imágenes.'));
+    }
+    cb(null, true);
+  }
+});
 
 const router = express.Router();
 
@@ -223,6 +263,58 @@ router.delete('/categories/:id', requireAuth, async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+});
+
+router.get('/design', requireAuth, async (req, res, next) => {
+  try {
+    const design = await getDesign();
+    res.json({ data: design });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.put('/design', requireAuth, async (req, res, next) => {
+  try {
+    const payload = validate(updateDesignSchema, req.body || {});
+    const updated = await updateDesign(payload);
+    res.json({ data: updated });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/uploads', requireAuth, (req, res, next) => {
+  imageUpload.single('file')(req, res, (error) => {
+    if (error) {
+      if (error instanceof multer.MulterError || error.message) {
+        return res.status(400).json({
+          error: {
+            code: 'UPLOAD_FAILED',
+            message: error.message || 'No se pudo subir el archivo.'
+          }
+        });
+      }
+      return next(error);
+    }
+    if (!req.file) {
+      return res.status(400).json({
+        error: {
+          code: 'NO_FILE',
+          message: 'No se envió ningún archivo.'
+        }
+      });
+    }
+    const url = `/uploads/${req.file.filename}`;
+    res.status(201).json({
+      data: {
+        url,
+        filename: req.file.filename,
+        size: req.file.size,
+        mimeType: req.file.mimetype
+      }
+    });
+  });
 });
 
 router.get('/stats/links/:id', requireAuth, async (req, res, next) => {

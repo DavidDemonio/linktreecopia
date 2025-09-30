@@ -1,5 +1,5 @@
 import express from 'express';
-import { getLinks, getCategories, recordClick } from '../data/repositories.js';
+import { getLinks, getCategories, recordClick, getDesign } from '../data/repositories.js';
 import { redirectRateLimiter } from '../middleware/rateLimit.js';
 import { createFingerprint, getClientAddress } from '../utils/fingerprint.js';
 import { lookupCountry, parseReferer } from '../utils/analytics.js';
@@ -36,6 +36,15 @@ router.get('/categories', async (req, res, next) => {
   try {
     const categories = await getCategories();
     res.json({ data: categories });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/design', async (req, res, next) => {
+  try {
+    const design = await getDesign();
+    res.json({ data: design });
   } catch (error) {
     next(error);
   }

@@ -1,9 +1,11 @@
 import { v4 as uuid } from 'uuid';
 import { readJson, writeJson, updateJson } from './storage.js';
+import { defaultDesign } from '../config/defaultDesign.js';
 
 const LINKS_FILE = 'links.json';
 const CATEGORIES_FILE = 'categories.json';
 const STATS_FILE = 'stats.json';
+const DESIGN_FILE = 'design.json';
 
 export async function getLinks() {
   return readJson(LINKS_FILE, []);
@@ -30,6 +32,64 @@ export async function getStats() {
 export async function saveStats(stats) {
   await writeJson(STATS_FILE, stats);
   return stats;
+}
+
+export async function getDesign() {
+  return readJson(DESIGN_FILE, defaultDesign);
+}
+
+export async function saveDesign(design) {
+  await writeJson(DESIGN_FILE, design);
+  return design;
+}
+
+export async function updateDesign(payload) {
+  const current = await getDesign();
+  const next = {
+    ...defaultDesign,
+    ...current,
+    ...payload,
+    background: {
+      ...defaultDesign.background,
+      ...(current?.background || {}),
+      ...(payload?.background || {})
+    },
+    profile: {
+      ...defaultDesign.profile,
+      ...(current?.profile || {}),
+      ...(payload?.profile || {})
+    },
+    layout: {
+      ...defaultDesign.layout,
+      ...(current?.layout || {}),
+      ...(payload?.layout || {}),
+      linkStyle: {
+        ...defaultDesign.layout.linkStyle,
+        ...((current?.layout || {}).linkStyle || {}),
+        ...((payload?.layout || {}).linkStyle || {})
+      }
+    },
+    palette: {
+      ...defaultDesign.palette,
+      ...(current?.palette || {}),
+      ...(payload?.palette || {})
+    }
+  };
+
+  if (!next.layout.sectionOrder?.length) {
+    next.layout.sectionOrder = [...defaultDesign.layout.sectionOrder];
+  }
+
+  const allowedSections = new Set(defaultDesign.layout.sectionOrder);
+  next.layout.sectionOrder = next.layout.sectionOrder.filter((section) => allowedSections.has(section));
+  defaultDesign.layout.sectionOrder.forEach((section) => {
+    if (!next.layout.sectionOrder.includes(section)) {
+      next.layout.sectionOrder.push(section);
+    }
+  });
+
+  await saveDesign(next);
+  return next;
 }
 
 export async function createLink(payload) {

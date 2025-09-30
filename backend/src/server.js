@@ -7,6 +7,7 @@ import csurf from 'csurf';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { config } from './config/env.js';
+import { resolveDataPath } from './data/storage.js';
 import publicRoutes from './routes/public.js';
 import redirectRoutes from './routes/redirect.js';
 import adminRoutes from './routes/admin.js';
@@ -25,6 +26,9 @@ app.use(morgan('dev'));
 const jsonBodyLimit = '1mb';
 app.use(express.json({ limit: jsonBodyLimit }));
 app.use(express.urlencoded({ extended: true, limit: jsonBodyLimit }));
+
+const uploadsPath = resolveDataPath('uploads');
+app.use('/uploads', express.static(uploadsPath));
 
 const allowedOrigins = config.env === 'production' ? [] : ['http://localhost:5173'];
 const corsOptions = {
