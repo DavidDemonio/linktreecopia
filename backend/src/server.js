@@ -45,10 +45,12 @@ app.use(
     secret: config.sessionSecret,
     resave: false,
     saveUninitialized: false,
+    rolling: true,
     cookie: {
       httpOnly: true,
       secure: config.env === 'production',
-      sameSite: config.env === 'production' ? 'strict' : 'lax'
+      sameSite: config.env === 'production' ? 'strict' : 'lax',
+      maxAge: 1000 * 60 * 60 * 24 * 30
     }
   })
 );
